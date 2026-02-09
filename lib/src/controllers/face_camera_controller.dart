@@ -27,7 +27,8 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
     this.showDebugLandmarks = false,
     required this.onCapture,
     this.onFaceDetected,
-  }) : super(FaceCameraState.uninitialized());
+  })  : assert(captureDelay >= 0, 'captureDelay must be non-negative'),
+        super(FaceCameraState.uninitialized());
 
   /// The desired resolution for the camera.
   final ImageResolution imageResolution;
@@ -227,8 +228,9 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
               // Update state with positioning status
               value = value.copyWith(isFaceWellPositioned: isFaceCentered);
 
-              // Only check if landmarks are inside frame (no other constraints)
-              bool shouldCapture = isFaceCentered || ignoreFacePositioning;
+              // Require face to be detected, then check positioning (unless ignored)
+              bool shouldCapture = result.face != null &&
+                  (isFaceCentered || ignoreFacePositioning);
 
               // Don't start countdown if already capturing
               if (autoCapture && shouldCapture && !value.isCapturing) {
@@ -273,10 +275,12 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
     value = value.copyWith(countdown: _currentCountdown);
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // Check if face is still detected before continuing countdown
+      // Check if face is still detected and well-positioned
       final detectedFace = value.detectedFace;
-      if (detectedFace == null) {
-        // Face disappeared - cancel countdown
+      if (detectedFace == null ||
+          detectedFace.face == null ||
+          !value.isFaceWellPositioned) {
+        // Face moved or disappeared - cancel countdown
         timer.cancel();
         value = value.copyWith(countdown: null);
         _currentCountdown = 0;
