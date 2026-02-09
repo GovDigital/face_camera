@@ -128,9 +128,9 @@ The `IndicatorShape.fixedFrame` option displays a centered, fixed-size frame (70
 For the frame to turn green and trigger auto-capture, the following conditions must ALL be met:
 
 1. **Face Distance**
-   - Eye distance must be between 0.02 - 0.08 (normalized)
-   - Too close → "Move back"
-   - Too far → "Move closer"
+   - Eye distance must be between 0.14 - 0.28 (normalized Euclidean distance)
+   - Too close (> 0.28) → "Move back"
+   - Too far (< 0.14) → "Move closer"
 
 2. **Landmark Positioning**
    - All 6 facial landmarks (both eyes, nose, 3 mouth points) must be inside the frame bounds (15% - 85% of screen)

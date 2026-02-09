@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/widgets.dart';
@@ -328,22 +329,23 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
     final leftEye = face.landmarks[FaceLandmarkType.leftEye];
     final rightEye = face.landmarks[FaceLandmarkType.rightEye];
     if (leftEye != null && rightEye != null) {
-      // Calculate distance between eyes (normalized)
       final leftEyeX = leftEye.position.x / imageSize.width;
       final leftEyeY = leftEye.position.y / imageSize.height;
       final rightEyeX = rightEye.position.x / imageSize.width;
       final rightEyeY = rightEye.position.y / imageSize.height;
 
-      final eyeDistance = ((leftEyeX - rightEyeX) * (leftEyeX - rightEyeX) +
-                          (leftEyeY - rightEyeY) * (leftEyeY - rightEyeY)).abs();
+      // Calculate actual Euclidean distance (not squared)
+      final dx = leftEyeX - rightEyeX;
+      final dy = leftEyeY - rightEyeY;
+      final eyeDistance = sqrt(dx * dx + dy * dy);
 
-      // If eyes are too close together (< 0.02), face is too far
-      if (eyeDistance < 0.02) {
+      // If eyes are too close (distance < 0.14), face is too far
+      if (eyeDistance < 0.14) {
         return "Move closer";
       }
 
-      // If eyes are too far apart (> 0.08), face is too close
-      if (eyeDistance > 0.08) {
+      // If eyes are too far apart (distance > 0.28), face is too close
+      if (eyeDistance > 0.28) {
         return "Move back";
       }
     }
@@ -422,17 +424,18 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
     final leftEye = face.landmarks[FaceLandmarkType.leftEye];
     final rightEye = face.landmarks[FaceLandmarkType.rightEye];
     if (leftEye != null && rightEye != null) {
-      // Calculate distance between eyes (normalized)
       final leftEyeX = leftEye.position.x / imageSize.width;
       final leftEyeY = leftEye.position.y / imageSize.height;
       final rightEyeX = rightEye.position.x / imageSize.width;
       final rightEyeY = rightEye.position.y / imageSize.height;
 
-      final eyeDistance = ((leftEyeX - rightEyeX) * (leftEyeX - rightEyeX) +
-                          (leftEyeY - rightEyeY) * (leftEyeY - rightEyeY)).abs();
+      // Calculate actual Euclidean distance (not squared)
+      final dx = leftEyeX - rightEyeX;
+      final dy = leftEyeY - rightEyeY;
+      final eyeDistance = sqrt(dx * dx + dy * dy);
 
-      // Face must be at correct distance
-      if (eyeDistance < 0.02 || eyeDistance > 0.08) {
+      // Face must be at correct distance (0.14 to 0.28)
+      if (eyeDistance < 0.14 || eyeDistance > 0.28) {
         return false;
       }
     }
