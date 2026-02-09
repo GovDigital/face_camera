@@ -242,31 +242,6 @@ class FacePainter extends CustomPainter {
     );
   }
 
-  /// Check if detected face is within the fixed frame
-  bool _isFaceInFrame(Rect fixedRect, Size size) {
-    if (face == null) return false;
-
-    // Convert face bounding box to screen coordinates
-    final Rect scaledFaceRect = Rect.fromLTRB(
-      (size.width - face!.boundingBox.left * scaleX!),
-      face!.boundingBox.top * scaleY!,
-      (size.width - face!.boundingBox.right * scaleX!),
-      face!.boundingBox.bottom * scaleY!,
-    );
-
-    // Check if face is reasonably centered in fixed frame
-    final double overlapThreshold = 0.4; // 40% overlap required
-    final Rect intersection = _getIntersection(scaledFaceRect, fixedRect);
-
-    if (intersection == Rect.zero) return false;
-
-    final double intersectionArea = intersection.width * intersection.height;
-    final double faceArea = scaledFaceRect.width * scaledFaceRect.height;
-    final double overlapRatio = intersectionArea / faceArea;
-
-    return overlapRatio >= overlapThreshold;
-  }
-
   /// Check if face is well-positioned (straight, eyes open, landmarks visible)
   bool _isFaceWellPositioned() {
     if (face == null) return false;
