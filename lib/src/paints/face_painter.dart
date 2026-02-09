@@ -241,60 +241,6 @@ class FacePainter extends CustomPainter {
       paint,
     );
   }
-
-  /// Check if face is well-positioned (straight, eyes open, landmarks visible)
-  bool _isFaceWellPositioned() {
-    if (face == null) return false;
-
-    // Head rotation check - must be facing forward
-    if (face!.headEulerAngleY! > 10 || face!.headEulerAngleY! < -10) {
-      return false;
-    }
-
-    // Head tilt check - must not be tilted sideways
-    if (face!.headEulerAngleZ! > 10 || face!.headEulerAngleZ! < -10) {
-      return false;
-    }
-
-    // Mouth landmarks check (essential for face quality)
-    final bottomMouth = face!.landmarks[FaceLandmarkType.bottomMouth];
-    final rightMouth = face!.landmarks[FaceLandmarkType.rightMouth];
-    final leftMouth = face!.landmarks[FaceLandmarkType.leftMouth];
-    if (bottomMouth == null || rightMouth == null || leftMouth == null) {
-      return false;
-    }
-
-    // Nose check (essential for face quality)
-    final noseBase = face!.landmarks[FaceLandmarkType.noseBase];
-    if (noseBase == null) return false;
-
-    // Note: Ear landmarks not required as they're often not visible in close-up face captures
-
-    // Eyes open check
-    if (face!.leftEyeOpenProbability != null &&
-        face!.leftEyeOpenProbability! < 0.5) {
-      return false;
-    }
-    if (face!.rightEyeOpenProbability != null &&
-        face!.rightEyeOpenProbability! < 0.5) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /// Get intersection rectangle between two rects
-  Rect _getIntersection(Rect a, Rect b) {
-    final left = a.left > b.left ? a.left : b.left;
-    final top = a.top > b.top ? a.top : b.top;
-    final right = a.right < b.right ? a.right : b.right;
-    final bottom = a.bottom < b.bottom ? a.bottom : b.bottom;
-
-    if (left < right && top < bottom) {
-      return Rect.fromLTRB(left, top, right, bottom);
-    }
-    return Rect.zero;
-  }
 }
 
 Path _defaultPath(
