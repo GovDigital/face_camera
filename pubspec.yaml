@@ -27,3 +27,4 @@ flutter:
         pluginClass: FaceCameraPlugin
       ios:
         pluginClass: FaceCameraPlugin
+publish_to: https://onepub.dev/api/xpdpsdavuh/
