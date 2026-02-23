@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
@@ -135,7 +137,9 @@ class _SmartFaceCameraState extends State<SmartFaceCamera>
                           fit: StackFit.expand,
                           children: <Widget>[
                             _cameraDisplayWidget(value),
-                            if (value.detectedFace != null &&
+                            if ((value.detectedFace != null ||
+                                    widget.indicatorShape ==
+                                        IndicatorShape.fixedFrame) &&
                                 widget.indicatorShape !=
                                     IndicatorShape.none) ...[
                               SizedBox(
@@ -154,7 +158,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera>
                                           )) ??
                                       CustomPaint(
                                         painter: FacePainter(
-                                            face: value.detectedFace!.face,
+                                            face: value.detectedFace?.face,
                                             indicatorShape:
                                                 widget.indicatorShape,
                                             indicatorAssetImage:
@@ -163,6 +167,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera>
                                                 value.isFaceWellPositioned || value.isCapturing,
                                             showDebugLandmarks:
                                                 widget.controller.showDebugLandmarks,
+                                            mirrorX: !Platform.isIOS,
                                             imageSize: Size(
                                               cameraController
                                                   .value.previewSize!.height,
@@ -195,7 +200,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera>
                   width: 120,
                   height: 120,
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
+                    color: Colors.black.withValues(alpha: 0.6),
                     shape: BoxShape.circle,
                   ),
                   child: Center(

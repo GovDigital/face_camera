@@ -4,6 +4,12 @@ import 'package:camera/camera.dart';
 
 extension Nv21Converter on CameraImage {
   Uint8List getNv21Uint8List() {
+    // CameraX may provide NV21 as a single plane already containing
+    // the full NV21 byte buffer. Return it directly in that case.
+    if (planes.length == 1) {
+      return Uint8List.fromList(planes[0].bytes);
+    }
+
     final width = this.width;
     final height = this.height;
 
@@ -26,9 +32,7 @@ extension Nv21Converter on CameraImage {
     // Copy Y & UV channel.
     // NV21 format is expected to have YYYYVU packaging.
     // The U/V planes are guaranteed to have the same row stride and pixel stride.
-    // getRowStride analogue??
     final uvRowStride = uPlane.bytesPerRow;
-    // getPixelStride analogue
     final uvPixelStride = uPlane.bytesPerPixel ?? 0;
     final yRowStride = yPlane.bytesPerRow;
     final yPixelStride = yPlane.bytesPerPixel ?? 0;
@@ -44,7 +48,7 @@ extension Nv21Converter on CameraImage {
           final bufferIndex = uvOffset + (x * uvPixelStride);
           //V channel
           nv21[idUV++] = vBuffer[bufferIndex];
-          //V channel
+          //U channel
           nv21[idUV++] = uBuffer[bufferIndex];
         }
       }

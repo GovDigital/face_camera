@@ -4,6 +4,6 @@ void logError(String message, [String? code]) {
   if (code != null) {
     debugPrint('Error: $code\nError Message: $message');
   } else {
-    debugPrint('Error: $code');
+    debugPrint('Error: $message');
   }
 }

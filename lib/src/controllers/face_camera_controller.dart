@@ -319,17 +319,29 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
     final cameraController = value.cameraController;
     if (cameraController == null) return "Place your face in the frame";
 
+    // Use the already-computed result from _processImage to stay in sync
+    // with the countdown logic. Re-evaluating _isFaceCentered here with
+    // previewSize (vs cameraImage dimensions) can produce a dead zone.
+    if (value.isFaceWellPositioned) {
+      return null;
+    }
+
     final imageSize = Size(
       cameraController.value.previewSize!.height,
       cameraController.value.previewSize!.width,
     );
 
-    // If already centered, no guidance needed (countdown will start)
-    if (_isFaceCentered(face, imageSize)) {
-      return null;
+    // Priority 1: Head rotation (must face camera straight)
+    if (face.headEulerAngleY != null &&
+        (face.headEulerAngleY! > 12 || face.headEulerAngleY! < -12)) {
+      return "Face the camera straight";
+    }
+    if (face.headEulerAngleZ != null &&
+        (face.headEulerAngleZ! > 12 || face.headEulerAngleZ! < -12)) {
+      return "Keep your head level";
     }
 
-    // Check face distance by measuring eye separation
+    // Priority 2: Distance (eye separation)
     final leftEye = face.landmarks[FaceLandmarkType.leftEye];
     final rightEye = face.landmarks[FaceLandmarkType.rightEye];
     if (leftEye != null && rightEye != null) {
@@ -338,23 +350,20 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
       final rightEyeX = rightEye.position.x / imageSize.width;
       final rightEyeY = rightEye.position.y / imageSize.height;
 
-      // Calculate actual Euclidean distance (not squared)
       final dx = leftEyeX - rightEyeX;
       final dy = leftEyeY - rightEyeY;
       final eyeDistance = sqrt(dx * dx + dy * dy);
 
-      // If eyes are too close (distance < 0.14), face is too far
-      if (eyeDistance < 0.14) {
+      if (eyeDistance < 0.10) {
         return "Move closer";
       }
 
-      // If eyes are too far apart (distance > 0.28), face is too close
       if (eyeDistance > 0.28) {
         return "Move back";
       }
     }
 
-    // Calculate face metrics
+    // Priority 3: Face size / distance via bounding box
     final frameSize = 0.7;
     final frameCenterX = 0.5;
     final frameCenterY = 0.5;
@@ -368,26 +377,19 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
     final faceCenterX = (faceLeft + faceRight) / 2;
     final faceCenterY = (faceTop + faceBottom) / 2;
 
-    // Priority 1: Distance (face too small or too large)
-    // If face is very small (width < 50% of frame), need to get closer
-    if (faceWidth < frameSize * 0.5) {
+    if (faceWidth < frameSize * 0.35) {
       return "Move closer";
     }
 
-    // If face is too large (width > 95% of frame), need to move back
     if (faceWidth > frameSize * 0.95) {
       return "Move back";
     }
 
-    // Priority 2: Centering (if face is reasonable size but not centered)
+    // Priority 4: Centering
     final centerOffsetX = faceCenterX - frameCenterX;
     final centerOffsetY = faceCenterY - frameCenterY;
 
-    // Horizontal guidance (use threshold slightly less than strict requirement of 18%)
     if (centerOffsetX.abs() > 0.15) {
-      // For front camera (mirrored display):
-      // If faceCenterX < frameCenterX (left side), user should move right
-      // If faceCenterX > frameCenterX (right side), user should move left
       if (centerOffsetX < 0) {
         return "Move right";
       } else {
@@ -395,7 +397,6 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
       }
     }
 
-    // Vertical guidance
     if (centerOffsetY.abs() > 0.15) {
       if (centerOffsetY < 0) {
         return "Move down";
@@ -404,9 +405,19 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
       }
     }
 
-    // If we get here, face is good size and reasonably centered,
-    // but not meeting the strict requirements yet
-    return "Center your face";
+    // Priority 5: Nose near center (matches _isFaceCentered tolerance)
+    final noseLandmark = face.landmarks[FaceLandmarkType.noseBase];
+    if (noseLandmark != null) {
+      final noseX = (noseLandmark.position.x / imageSize.width).clamp(0.0, 1.0);
+      final noseY = (noseLandmark.position.y / imageSize.height).clamp(0.0, 1.0);
+
+      if ((noseX - frameCenterX).abs() > 0.2 ||
+          (noseY - frameCenterY).abs() > 0.2) {
+        return "Center your face";
+      }
+    }
+
+    return "Move closer";
   }
 
   /// Check if face is well-positioned in the fixed frame
@@ -438,8 +449,8 @@ class FaceCameraController extends ValueNotifier<FaceCameraState> {
       final dy = leftEyeY - rightEyeY;
       final eyeDistance = sqrt(dx * dx + dy * dy);
 
-      // Face must be at correct distance (0.14 to 0.28)
-      if (eyeDistance < 0.14 || eyeDistance > 0.28) {
+      // Face must be at correct distance (0.10 to 0.28)
+      if (eyeDistance < 0.10 || eyeDistance > 0.28) {
         return false;
       }
     }

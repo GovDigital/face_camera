@@ -92,9 +92,9 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/google_mlkit_face_detection/ios"
 
 SPEC CHECKSUMS:
-  camera_avfoundation: 759172d1a77ae7be0de08fc104cfb79738b8a59e
+  camera_avfoundation: 281867ff09f1da66f031a184ecfbc6f2e625c9f5
   face_camera: 787c50bc183b37c9b6f9777a1416e5b384b5c234
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   google_mlkit_commons: 384e4e206e122b6dad430d3158205e0b2fac6789
   google_mlkit_face_detection: ff627695d8eba051db7e0f13f7b20d802df1f84c
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7

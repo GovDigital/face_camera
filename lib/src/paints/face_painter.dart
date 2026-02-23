@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:flutter/material.dart';
 
 import '../../face_camera.dart';
@@ -10,7 +12,8 @@ class FacePainter extends CustomPainter {
       required this.indicatorShape,
       this.indicatorAssetImage,
       this.isFaceWellPositioned = false,
-      this.showDebugLandmarks = false});
+      this.showDebugLandmarks = false,
+      this.mirrorX = true});
   final Size imageSize;
   double? scaleX, scaleY;
   final Face? face;
@@ -18,6 +21,16 @@ class FacePainter extends CustomPainter {
   final String? indicatorAssetImage;
   final bool isFaceWellPositioned;
   final bool showDebugLandmarks;
+
+  /// Whether to mirror the x-axis. True on Android (preview is mirrored),
+  /// false on iOS (preview uses raw sensor orientation).
+  final bool mirrorX;
+
+  /// Transforms a raw x-coordinate to screen space.
+  double _tx(double x, double width) {
+    return mirrorX ? width - x * scaleX! : x * scaleX!;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     scaleX = size.width / imageSize.width;
@@ -56,8 +69,9 @@ class FacePainter extends CustomPainter {
               rect: face!.boundingBox,
               widgetSize: size,
               scaleX: scaleX,
-              scaleY: scaleY),
-          paint, // Adjust color as needed
+              scaleY: scaleY,
+              mirrorX: mirrorX),
+          paint,
         );
         break;
       case IndicatorShape.square:
@@ -66,7 +80,8 @@ class FacePainter extends CustomPainter {
                 rect: face!.boundingBox,
                 widgetSize: size,
                 scaleX: scaleX,
-                scaleY: scaleY),
+                scaleY: scaleY,
+                mirrorX: mirrorX),
             paint);
         break;
       case IndicatorShape.circle:
@@ -75,9 +90,10 @@ class FacePainter extends CustomPainter {
               rect: face!.boundingBox,
               widgetSize: size,
               scaleX: scaleX,
-              scaleY: scaleY),
+              scaleY: scaleY,
+              mirrorX: mirrorX),
           face!.boundingBox.width / 2 * scaleX!,
-          paint, // Adjust color as needed
+          paint,
         );
         break;
       case IndicatorShape.triangle:
@@ -88,22 +104,25 @@ class FacePainter extends CustomPainter {
               widgetSize: size,
               scaleX: scaleX,
               scaleY: scaleY,
-              isInverted: indicatorShape == IndicatorShape.triangleInverted),
-          paint, // Adjust color as needed
+              mirrorX: mirrorX,
+              isInverted:
+                  indicatorShape == IndicatorShape.triangleInverted),
+          paint,
         );
         break;
       case IndicatorShape.image:
         final AssetImage image =
             AssetImage(indicatorAssetImage ?? AppImages.faceNet);
-        final ImageStream imageStream = image.resolve(ImageConfiguration.empty);
+        final ImageStream imageStream =
+            image.resolve(ImageConfiguration.empty);
 
         imageStream.addListener(
             ImageStreamListener((ImageInfo imageInfo, bool synchronousCall) {
           final rect = face!.boundingBox;
           final Rect destinationRect = Rect.fromPoints(
-            Offset(size.width - rect.left.toDouble() * scaleX!,
+            Offset(_tx(rect.left.toDouble(), size.width),
                 rect.top.toDouble() * scaleY!),
-            Offset(size.width - rect.right.toDouble() * scaleX!,
+            Offset(_tx(rect.right.toDouble(), size.width),
                 rect.bottom.toDouble() * scaleY!),
           );
 
@@ -157,7 +176,7 @@ class FacePainter extends CustomPainter {
         landmarkPaint.color = entry.value;
 
         // Convert landmark position to screen coordinates
-        final x = size.width - landmark.position.x.toDouble() * scaleX!;
+        final x = _tx(landmark.position.x.toDouble(), size.width);
         final y = landmark.position.y.toDouble() * scaleY!;
 
         // Draw landmark as a circle
@@ -179,16 +198,20 @@ class FacePainter extends CustomPainter {
       ..color = Colors.cyan;
 
     // Clamp bounding box to valid image range (ML Kit can extend beyond image)
-    final clampedLeft = face!.boundingBox.left.clamp(0.0, imageSize.width);
-    final clampedRight = face!.boundingBox.right.clamp(0.0, imageSize.width);
-    final clampedTop = face!.boundingBox.top.clamp(0.0, imageSize.height);
-    final clampedBottom = face!.boundingBox.bottom.clamp(0.0, imageSize.height);
+    final clampedLeft =
+        face!.boundingBox.left.clamp(0.0, imageSize.width);
+    final clampedRight =
+        face!.boundingBox.right.clamp(0.0, imageSize.width);
+    final clampedTop =
+        face!.boundingBox.top.clamp(0.0, imageSize.height);
+    final clampedBottom =
+        face!.boundingBox.bottom.clamp(0.0, imageSize.height);
 
     canvas.drawRect(
       Rect.fromLTRB(
-        size.width - clampedLeft * scaleX!,
+        _tx(clampedLeft, size.width),
         clampedTop * scaleY!,
-        size.width - clampedRight * scaleX!,
+        _tx(clampedRight, size.width),
         clampedBottom * scaleY!,
       ),
       boundingBoxPaint,
@@ -198,15 +221,18 @@ class FacePainter extends CustomPainter {
   @override
   bool shouldRepaint(FacePainter oldDelegate) {
     return oldDelegate.imageSize != imageSize ||
-           oldDelegate.face != face ||
-           oldDelegate.showDebugLandmarks != showDebugLandmarks ||
-           oldDelegate.isFaceWellPositioned != isFaceWellPositioned;
+        oldDelegate.face != face ||
+        oldDelegate.showDebugLandmarks != showDebugLandmarks ||
+        oldDelegate.isFaceWellPositioned != isFaceWellPositioned ||
+        oldDelegate.mirrorX != mirrorX;
   }
 
   /// Draw a fixed centered frame that changes color based on face position
   void _drawFixedFrame(Canvas canvas, Size size) {
-    // Define fixed square in center of screen (70% of screen width)
-    final double squareSize = size.width * 0.7;
+    // Use 70% of width but cap to 40% of height so the frame stays
+    // a consistent visual size across different camera aspect ratios
+    // (e.g. 4:3 on iOS vs 16:9 on Android).
+    final double squareSize = min(size.width * 0.7, size.height * 0.4);
     final Rect fixedRect = Rect.fromCenter(
       center: Offset(size.width / 2, size.height / 2),
       width: squareSize,
@@ -220,7 +246,7 @@ class FacePainter extends CustomPainter {
       paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
-        ..color = Colors.white.withOpacity(0.5);
+        ..color = Colors.white.withValues(alpha: 0.5);
     } else if (isFaceWellPositioned) {
       // Face is properly positioned - green
       paint = Paint()
@@ -243,16 +269,23 @@ class FacePainter extends CustomPainter {
   }
 }
 
+double _txHelper(
+    double x, double width, double? scaleX, bool mirrorX) {
+  return mirrorX ? width - x * scaleX! : x * scaleX!;
+}
+
 Path _defaultPath(
     {required Rect rect,
     required Size widgetSize,
     double? scaleX,
-    double? scaleY}) {
-  double cornerExtension =
-      30.0; // Adjust the length of the corner extensions as needed
+    double? scaleY,
+    bool mirrorX = true}) {
+  double cornerExtension = 30.0;
 
-  double left = widgetSize.width - rect.left.toDouble() * scaleX!;
-  double right = widgetSize.width - rect.right.toDouble() * scaleX;
+  double left =
+      _txHelper(rect.left.toDouble(), widgetSize.width, scaleX, mirrorX);
+  double right =
+      _txHelper(rect.right.toDouble(), widgetSize.width, scaleX, mirrorX);
   double top = rect.top.toDouble() * scaleY!;
   double bottom = rect.bottom.toDouble() * scaleY;
   return Path()
@@ -274,11 +307,14 @@ RRect _scaleRect(
     {required Rect rect,
     required Size widgetSize,
     double? scaleX,
-    double? scaleY}) {
+    double? scaleY,
+    bool mirrorX = true}) {
   return RRect.fromLTRBR(
-      (widgetSize.width - rect.left.toDouble() * scaleX!),
+      _txHelper(
+          rect.left.toDouble(), widgetSize.width, scaleX, mirrorX),
       rect.top.toDouble() * scaleY!,
-      widgetSize.width - rect.right.toDouble() * scaleX,
+      _txHelper(
+          rect.right.toDouble(), widgetSize.width, scaleX, mirrorX),
       rect.bottom.toDouble() * scaleY,
       const Radius.circular(10));
 }
@@ -287,9 +323,11 @@ Offset _circleOffset(
     {required Rect rect,
     required Size widgetSize,
     double? scaleX,
-    double? scaleY}) {
+    double? scaleY,
+    bool mirrorX = true}) {
   return Offset(
-    (widgetSize.width - rect.center.dx * scaleX!),
+    _txHelper(
+        rect.center.dx, widgetSize.width, scaleX, mirrorX),
     rect.center.dy * scaleY!,
   );
 }
@@ -299,23 +337,36 @@ Path _trianglePath(
     required Size widgetSize,
     double? scaleX,
     double? scaleY,
+    bool mirrorX = true,
     bool isInverted = false}) {
   if (isInverted) {
     return Path()
-      ..moveTo(widgetSize.width - rect.center.dx * scaleX!,
+      ..moveTo(
+          _txHelper(
+              rect.center.dx, widgetSize.width, scaleX, mirrorX),
           rect.bottom.toDouble() * scaleY!)
-      ..lineTo(widgetSize.width - rect.left.toDouble() * scaleX,
+      ..lineTo(
+          _txHelper(
+              rect.left.toDouble(), widgetSize.width, scaleX, mirrorX),
           rect.top.toDouble() * scaleY)
-      ..lineTo(widgetSize.width - rect.right.toDouble() * scaleX,
+      ..lineTo(
+          _txHelper(
+              rect.right.toDouble(), widgetSize.width, scaleX, mirrorX),
           rect.top.toDouble() * scaleY)
       ..close();
   }
   return Path()
-    ..moveTo(widgetSize.width - rect.center.dx * scaleX!,
+    ..moveTo(
+        _txHelper(
+            rect.center.dx, widgetSize.width, scaleX, mirrorX),
         rect.top.toDouble() * scaleY!)
-    ..lineTo(widgetSize.width - rect.left.toDouble() * scaleX,
+    ..lineTo(
+        _txHelper(
+            rect.left.toDouble(), widgetSize.width, scaleX, mirrorX),
         rect.bottom.toDouble() * scaleY)
-    ..lineTo(widgetSize.width - rect.right.toDouble() * scaleX,
+    ..lineTo(
+        _txHelper(
+            rect.right.toDouble(), widgetSize.width, scaleX, mirrorX),
         rect.bottom.toDouble() * scaleY)
     ..close();
 }
