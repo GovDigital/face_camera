@@ -1,3 +1,7 @@
+## 0.1.5
+
+* Fix face detection issue on some Android devices.
+
 ## 0.1.4
 
 - Adds a namespace for compatibility with AGP 8.0.
